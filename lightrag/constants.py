@@ -38,6 +38,20 @@ DEFAULT_ENTITY_TYPES = [
     "NaturalObject",
 ]
 
+# DEFAULT_ENTITY_TYPES = [
+#     "人物",          # Person
+#     "生物",          # Creature
+#     "组织",          # Organization
+#     "地点",          # Location
+#     "事件",          # Event
+#     "概念",          # Concept
+#     "方法",          # Method
+#     "内容",          # Content
+#     "数据",          # Data
+#     "人工制品",      # Artifact
+#     "自然物",        # NaturalObject
+# ]
+
 # Separator for: description, source_id and relation-key fields(Can not be changed after data inserted)
 GRAPH_FIELD_SEP = "<SEP>"
 
