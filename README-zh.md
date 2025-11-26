@@ -2,8 +2,8 @@
 
 
 <div style="margin: 20px 0;">
-魔改-lly自用，原项目地址：
-[https://github.com/HKUDS/LightRAG](https://github.com/HKUDS/LightRAG)
+魔改LightRAGv1.4.9.8-lly自用，原项目地址：
+https://github.com/HKUDS/LightRAG
 </div>
 
 <div style="margin: 20px 0;">
