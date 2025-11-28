@@ -11,7 +11,7 @@ from lightrag.utils import (
     get_pinyin_sort_key,
 )
 from lightrag.exceptions import StorageNotInitializedError
-from lightrag.base import (DatasetMetadataStorage)
+from lightrag.base import (DatasetStorage)
 
 from .shared_storage import (
     get_namespace_data,
@@ -25,7 +25,7 @@ from .shared_storage import (
 
 @final
 @dataclass
-class JsonDatasetMetadataStorage(DatasetMetadataStorage):
+class JsonDatasetStorage(DatasetStorage):
     """JSON implementation of dataset metadata storage"""
 
     def __post_init__(self):
@@ -100,18 +100,6 @@ class JsonDatasetMetadataStorage(DatasetMetadataStorage):
     # =====================================================================
     #                           基础存取方法
     # =====================================================================
-
-    async def get_dataset_counts(self) -> dict[str, int]:
-        """统计所有 dataset 数量"""
-        if self._storage_lock is None:
-            raise StorageNotInitializedError("JsonDatasetMetadataStorage")
-
-        async with self._storage_lock:
-            return {
-                "total": len(self._data),
-                "active": sum(1 for x in self._data.values() if x.get("active", True)),
-                "inactive": sum(1 for x in self._data.values() if not x.get("active", True)),
-            }
 
     async def get_dataset(self, dataset_id: str) -> dict[str, Any] | None:
         async with self._storage_lock:
@@ -199,7 +187,7 @@ class JsonDatasetMetadataStorage(DatasetMetadataStorage):
     ) -> None:
         """新增或更新 dataset"""
         if self._storage_lock is None:
-            raise StorageNotInitializedError("JsonDatasetMetadataStorage")
+            raise StorageNotInitializedError("JsonDatasetStorage")
 
         async with self._storage_lock:
             # 确保字段基本格式统一

@@ -77,7 +77,7 @@ from lightrag.base import (
     DocProcessingStatus,
     DocStatus,
     DocStatusStorage,
-    DatasetMetadataStorage,
+    DatasetStorage,
     QueryParam,
     StorageNameSpace,
     StoragesStatus,
@@ -152,8 +152,8 @@ class LightRAG:
     doc_status_storage: str = field(default="JsonDocStatusStorage")
     """Storage type for tracking document processing statuses."""
 
-    dataset_metadata_storage: str = field(default="JsonDatasetMetadataStorage")
-    """Storage type for dataset metadata."""
+    dataset_storage: str = field(default="JsonDatasetStorage")
+    """Storage type for dataset."""
 
 
     # Workspace
@@ -567,7 +567,7 @@ class LightRAG:
         )
 
         # Initialize dataset status storage
-        self.dataset_metadata_storage_cls = self._get_storage_class(self.dataset_metadata_storage)
+        self.dataset_storage_cls = self._get_storage_class(self.dataset_storage)
 
         # Initialize document status storage
         self.doc_status_storage_cls = self._get_storage_class(self.doc_status_storage)
@@ -642,9 +642,9 @@ class LightRAG:
             meta_fields={"full_doc_id", "content", "file_path"},
         )
 
-        # Initialize dataset_metadata status storage
-        self.dataset_metadata:DatasetMetadataStorage = self.dataset_metadata_storage_cls(
-            namespace=NameSpace.DATASET_METADATA,
+        # Initialize dataset status storage
+        self.dataset:DatasetStorage = self.dataset_storage_cls(
+            namespace=NameSpace.DATASET,
             workspace=self.workspace,
             global_config=global_config,
             embedding_func=self.embedding_func,
@@ -1115,9 +1115,9 @@ class LightRAG:
 
             return JsonDocStatusStorage
 
-        elif storage_name == "DatasetMetadataStorage":
-            from lightrag.kg.dataset_metadata_impl import JsonDatasetMetadataStorage
-            return JsonDatasetMetadataStorage
+        elif storage_name == "DatasetStorage":
+            from lightrag.kg.dataset_impl import JsonDatasetStorage
+            return JsonDatasetStorage
 
         else:
             # Fallback to dynamic import for other storage implementations
@@ -1133,6 +1133,7 @@ class LightRAG:
         ids: str | list[str] | None = None,
         file_paths: str | list[str] | None = None,
         track_id: str | None = None,
+        dataset_id: str | None = None,
     ) -> str:
         """Sync Insert documents with checkpoint support
 
@@ -1158,6 +1159,7 @@ class LightRAG:
                 ids,
                 file_paths,
                 track_id,
+                dataset_id,
             )
         )
 
@@ -1169,6 +1171,7 @@ class LightRAG:
         ids: str | list[str] | None = None,
         file_paths: str | list[str] | None = None,
         track_id: str | None = None,
+        dataset_id: str | None = None,
     ) -> str:
         """Async Insert documents with checkpoint support
 
@@ -1189,7 +1192,7 @@ class LightRAG:
         if track_id is None:
             track_id = generate_track_id("insert")
 
-        await self.apipeline_enqueue_documents(input, ids, file_paths, track_id)
+        await self.apipeline_enqueue_documents(input, ids, file_paths, track_id,dataset_id)
         await self.apipeline_process_enqueue_documents(
             split_by_character, split_by_character_only
         )
@@ -1274,6 +1277,7 @@ class LightRAG:
         ids: list[str] | None = None,
         file_paths: str | list[str] | None = None,
         track_id: str | None = None,
+        dataset_id: str | None = None,
     ) -> str:
         """
         Pipeline for Processing Documents
@@ -1293,6 +1297,9 @@ class LightRAG:
             str: tracking ID for monitoring processing status
         """
         # Generate track_id if not provided
+        if not dataset_id or dataset_id.strip() == "":
+            raise ValueError("dataset_id (Knowledge Base ID) must be provided for data isolation.")
+
         if track_id is None or track_id.strip() == "":
             track_id = generate_track_id("enqueue")
         if isinstance(input, str):
@@ -1365,6 +1372,7 @@ class LightRAG:
                     "file_path"
                 ],  # Store file path in document status
                 "track_id": track_id,  # Store track_id in document status
+                "dataset_id": dataset_id,
             }
             for id_, content_data in contents.items()
         }
@@ -1405,6 +1413,7 @@ class LightRAG:
             doc_id: {
                 "content": contents[doc_id]["content"],
                 "file_path": contents[doc_id]["file_path"],
+                "dataset_id": dataset_id,
             }
             for doc_id in new_docs.keys()
         }
@@ -1618,8 +1627,8 @@ class LightRAG:
 
     async def apipeline_process_enqueue_documents(
         self,
-        split_by_character: str | None = None,
-        split_by_character_only: bool = False,
+            split_by_character: str | None = None,
+            split_by_character_only: bool = False,
     ) -> None:
         """
         Process pending documents by splitting them into chunks, processing
@@ -1883,6 +1892,7 @@ class LightRAG:
                                             ).isoformat(),
                                             "file_path": file_path,
                                             "track_id": status_doc.track_id,  # Preserve existing track_id
+                                            "dataset_id": getattr(status_doc, "dataset_id", None), # <--- 修正
                                             "metadata": {
                                                 "processing_start_time": processing_start_time
                                             },
@@ -1976,6 +1986,7 @@ class LightRAG:
                                         ).isoformat(),
                                         "file_path": file_path,
                                         "track_id": status_doc.track_id,  # Preserve existing track_id
+                                        "dataset_id": getattr(status_doc, "dataset_id", None),
                                         "metadata": {
                                             "processing_start_time": processing_start_time,
                                             "processing_end_time": processing_end_time,
@@ -2033,6 +2044,7 @@ class LightRAG:
                                             ).isoformat(),
                                             "file_path": file_path,
                                             "track_id": status_doc.track_id,  # Preserve existing track_id
+                                            "dataset_id": getattr(status_doc, "dataset_id", None),
                                             "metadata": {
                                                 "processing_start_time": processing_start_time,
                                                 "processing_end_time": processing_end_time,
@@ -2101,6 +2113,7 @@ class LightRAG:
                                             "updated_at": datetime.now().isoformat(),
                                             "file_path": file_path,
                                             "track_id": status_doc.track_id,  # Preserve existing track_id
+                                            "dataset_id": getattr(status_doc, "dataset_id", None),
                                             "metadata": {
                                                 "processing_start_time": processing_start_time,
                                                 "processing_end_time": processing_end_time,

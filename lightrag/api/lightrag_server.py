@@ -56,7 +56,7 @@ from lightrag.api.routers.document_routes import (
     DocumentManager,
     create_document_routes,
 )
-from lightrag.kg.dataset_metadata_impl import JsonDatasetMetadataStorage
+from lightrag.kg.dataset_impl import JsonDatasetStorage
 
 
 from lightrag.api.routers.query_routes import create_query_routes
@@ -353,8 +353,8 @@ def create_app(args):
     # Check if API key is provided either through env var or args
     api_key = os.getenv("LIGHTRAG_API_KEY") or args.key
 
-    # Initialize dataset manager with workspace support for data isolation
 
+    # Initialize dataset manager with workspace support for data isolation
     global_config = {
         "embedding_batch_num": 10,  # Batch size
         "vector_db_storage_cls_kwargs": {
@@ -368,9 +368,7 @@ def create_app(args):
     async def mock_embedding_func(texts):
       return np.random.rand(len(texts), 10)  # Return 10-dimensional random vectors
 
-
-
-    storage = JsonDatasetMetadataStorage(
+    storage = JsonDatasetStorage(
         namespace="dataset",
         global_config=global_config,
         embedding_func=EmbeddingFunc(
@@ -383,6 +381,8 @@ def create_app(args):
     dataset_manager = DatasetManager(
         workspace=args.workspace,
         storage=storage)
+
+
 
     # Initialize document manager with workspace support for data isolation
     doc_manager = DocumentManager(args.input_dir, workspace=args.workspace)

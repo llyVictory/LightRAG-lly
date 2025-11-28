@@ -20,7 +20,7 @@ class NameSpace:
     GRAPH_STORE_CHUNK_ENTITY_RELATION = "chunk_entity_relation"
 
     DOC_STATUS = "doc_status"
-    DATASET_METADATA = "dataset_metadata"
+    DATASET = "dataset"
 
 
 def is_namespace(namespace: str, base_namespace: str | Iterable[str]):

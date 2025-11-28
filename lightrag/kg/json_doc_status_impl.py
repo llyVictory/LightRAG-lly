@@ -90,13 +90,18 @@ class JsonDocStatusStorage(DocStatusStorage):
                     ordered_results.append(None)
         return ordered_results
 
-    async def get_status_counts(self) -> dict[str, int]:
+    async def get_status_counts(
+            self,
+            dataset_id: str | None = None,
+    ) -> dict[str, int]:
         """Get counts of documents in each status"""
         counts = {status.value: 0 for status in DocStatus}
         if self._storage_lock is None:
             raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             for doc in self._data.values():
+                if dataset_id is not None and doc.get("dataset_id") != dataset_id:
+                    continue
                 counts[doc["status"]] += 1
         return counts
 
@@ -226,6 +231,7 @@ class JsonDocStatusStorage(DocStatusStorage):
 
     async def get_docs_paginated(
         self,
+        dataset_id: str | None = None,
         status_filter: DocStatus | None = None,
         page: int = 1,
         page_size: int = 50,
@@ -263,6 +269,14 @@ class JsonDocStatusStorage(DocStatusStorage):
 
         async with self._storage_lock:
             for doc_id, doc_data in self._data.items():
+
+                # Apply dataset_id filter
+                if (
+                        dataset_id is not None
+                        and doc_data.get("dataset_id") != dataset_id
+                ):
+                    continue
+
                 # Apply status filter
                 if (
                     status_filter is not None
@@ -321,13 +335,16 @@ class JsonDocStatusStorage(DocStatusStorage):
 
         return paginated_docs, total_count
 
-    async def get_all_status_counts(self) -> dict[str, int]:
+    async def get_all_status_counts(
+            self,
+            dataset_id: str | None = None,
+    ) -> dict[str, int]:
         """Get counts of documents in each status for all documents
 
         Returns:
             Dictionary mapping status names to counts, including 'all' field
         """
-        counts = await self.get_status_counts()
+        counts = await self.get_status_counts(dataset_id=dataset_id)
 
         # Add 'all' field with total count
         total_count = sum(counts.values())

@@ -19,6 +19,7 @@ from fastapi import (
     File,
     HTTPException,
     UploadFile,
+    Form,
 )
 from pydantic import BaseModel, Field, field_validator
 
@@ -582,6 +583,7 @@ class DocumentsRequest(BaseModel):
         sort_direction: Sort direction ('asc' or 'desc')
     """
 
+    dataset_id: str = Field(..., description="The ID of the knowledge base/dataset to filter documents.")
     status_filter: Optional[DocStatus] = Field(
         default=None, description="Filter by document status, None for all statuses"
     )
@@ -599,6 +601,7 @@ class DocumentsRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "dataset_id": "dataset-4dcdd8e7507240eab4ab203766cf15c8",
                 "status_filter": "PROCESSED",
                 "page": 1,
                 "page_size": 50,
@@ -1185,7 +1188,7 @@ def _extract_xlsx(file_bytes: bytes) -> str:
 
 
 async def pipeline_enqueue_file(
-    rag: LightRAG, file_path: Path, track_id: str = None
+    rag: LightRAG, file_path: Path, track_id: str = None,dataset_id: str = None
 ) -> tuple[bool, str]:
     """Add a file to the queue for processing
 
@@ -1554,7 +1557,7 @@ async def pipeline_enqueue_file(
 
             try:
                 await rag.apipeline_enqueue_documents(
-                    content, file_paths=file_path.name, track_id=track_id
+                    content, file_paths=file_path.name, track_id=track_id,dataset_id=dataset_id
                 )
 
                 logger.info(
@@ -1638,7 +1641,7 @@ async def pipeline_enqueue_file(
                 logger.error(f"Error deleting file {file_path}: {str(e)}")
 
 
-async def pipeline_index_file(rag: LightRAG, file_path: Path, track_id: str = None):
+async def pipeline_index_file(rag: LightRAG, file_path: Path, track_id: str = None,dataset_id: str = None):
     """Index a file with track_id
 
     Args:
@@ -1648,7 +1651,7 @@ async def pipeline_index_file(rag: LightRAG, file_path: Path, track_id: str = No
     """
     try:
         success, returned_track_id = await pipeline_enqueue_file(
-            rag, file_path, track_id
+            rag, file_path, track_id,dataset_id
         )
         if success:
             await rag.apipeline_process_enqueue_documents()
@@ -2064,7 +2067,9 @@ def create_document_routes(
         "/upload", response_model=InsertResponse, dependencies=[Depends(combined_auth)]
     )
     async def upload_to_input_dir(
-        background_tasks: BackgroundTasks, file: UploadFile = File(...)
+        background_tasks: BackgroundTasks,
+            dataset_id: str = Form(...),
+            file: UploadFile = File(...)
     ):
         """
         Upload a file to the input directory and index it.
@@ -2105,7 +2110,9 @@ def create_document_routes(
                     track_id="",
                 )
 
-            file_path = doc_manager.input_dir / safe_filename
+            dataset_input_dir = doc_manager.input_dir / dataset_id
+            dataset_input_dir.mkdir(parents=True, exist_ok=True)
+            file_path = dataset_input_dir / safe_filename
             # Check if file already exists in file system
             if file_path.exists():
                 return InsertResponse(
@@ -2120,7 +2127,7 @@ def create_document_routes(
             track_id = generate_track_id("upload")
 
             # Add to background tasks and get track_id
-            background_tasks.add_task(pipeline_index_file, rag, file_path, track_id)
+            background_tasks.add_task(pipeline_index_file, rag, file_path, track_id, dataset_id)
 
             return InsertResponse(
                 status="success",
@@ -2956,13 +2963,16 @@ def create_document_routes(
         try:
             # Get paginated documents and status counts in parallel
             docs_task = rag.doc_status.get_docs_paginated(
+                dataset_id=request.dataset_id,
                 status_filter=request.status_filter,
                 page=request.page,
                 page_size=request.page_size,
                 sort_field=request.sort_field,
                 sort_direction=request.sort_direction,
             )
-            status_counts_task = rag.doc_status.get_all_status_counts()
+            status_counts_task = rag.doc_status.get_all_status_counts(
+                dataset_id=request.dataset_id,
+            )
 
             # Execute both queries in parallel
             (documents_with_ids, total_count), status_counts = await asyncio.gather(

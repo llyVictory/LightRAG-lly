@@ -692,6 +692,8 @@ class DocProcessingStatus:
     """ISO format timestamp when document was last updated"""
     track_id: str | None = None
     """Tracking ID for monitoring progress"""
+    dataset_id: str | None = None
+    """Dataset ID (Knowledge Base ID) for data isolation"""
     chunks_count: int | None = None
     """Number of chunks after splitting, used for processing"""
     chunks_list: list[str] | None = field(default_factory=list)
@@ -721,12 +723,8 @@ class DocProcessingStatus:
                 self.status = DocStatus.PREPROCESSED
 
 @dataclass
-class DatasetMetadataStorage(BaseKVStorage,ABC):
+class DatasetStorage(BaseKVStorage,ABC):
     """Base class for dataset metadata storage"""
-
-    @abstractmethod
-    async def get_dataset_counts(self) -> dict[str, int]:
-        """获取所有 dataset 数量统计（例如 active / inactive 数量）"""
 
     @abstractmethod
     async def get_dataset(self, dataset_id: str) -> dict[str, Any] | None:
@@ -788,7 +786,10 @@ class DocStatusStorage(BaseKVStorage, ABC):
     """Base class for document status storage"""
 
     @abstractmethod
-    async def get_status_counts(self) -> dict[str, int]:
+    async def get_status_counts(
+            self,
+            dataset_id: str | None = None,
+    ) -> dict[str, int]:
         """Get counts of documents in each status"""
 
     @abstractmethod
@@ -806,6 +807,7 @@ class DocStatusStorage(BaseKVStorage, ABC):
     @abstractmethod
     async def get_docs_paginated(
         self,
+        dataset_id: str | None = None,
         status_filter: DocStatus | None = None,
         page: int = 1,
         page_size: int = 50,
@@ -815,6 +817,7 @@ class DocStatusStorage(BaseKVStorage, ABC):
         """Get documents with pagination support
 
         Args:
+            dataset_id: Filter by dataset ID, None for all datasets
             status_filter: Filter by document status, None for all statuses
             page: Page number (1-based)
             page_size: Number of documents per page (10-200)
@@ -826,8 +829,13 @@ class DocStatusStorage(BaseKVStorage, ABC):
         """
 
     @abstractmethod
-    async def get_all_status_counts(self) -> dict[str, int]:
+    async def get_all_status_counts(
+            self,
+            dataset_id: str | None = None,
+    ) -> dict[str, int]:
         """Get counts of documents in each status for all documents
+        Args:
+            dataset_id: Filter by dataset ID, None for all datasets
 
         Returns:
             Dictionary mapping status names to counts
