@@ -39,6 +39,12 @@ STORAGE_IMPLEMENTATIONS = {
         ],
         "required_methods": ["get_docs_by_status"],
     },
+    "DATASET_METADATA_STORAGE": {
+        "implementations": [
+            "JsonDatasetMetadataStorage",
+        ],
+        "required_methods": ["get_by_id", "upsert"],
+    },
 }
 
 # Storage implementation environment variable without default value
@@ -99,6 +105,7 @@ STORAGES = {
     "JsonKVStorage": ".kg.json_kv_impl",
     "NanoVectorDBStorage": ".kg.nano_vector_db_impl",
     "JsonDocStatusStorage": ".kg.json_doc_status_impl",
+    "JsonDatasetMetadataStorage": ".kg.dataset_metadata_impl",
     "Neo4JStorage": ".kg.neo4j_impl",
     "MilvusVectorDBStorage": ".kg.milvus_impl",
     "MongoKVStorage": ".kg.mongo_impl",

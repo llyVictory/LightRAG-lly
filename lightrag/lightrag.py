@@ -77,6 +77,7 @@ from lightrag.base import (
     DocProcessingStatus,
     DocStatus,
     DocStatusStorage,
+    DatasetMetadataStorage,
     QueryParam,
     StorageNameSpace,
     StoragesStatus,
@@ -150,6 +151,10 @@ class LightRAG:
 
     doc_status_storage: str = field(default="JsonDocStatusStorage")
     """Storage type for tracking document processing statuses."""
+
+    dataset_metadata_storage: str = field(default="JsonDatasetMetadataStorage")
+    """Storage type for dataset metadata."""
+
 
     # Workspace
     # ---
@@ -561,8 +566,13 @@ class LightRAG:
             self.graph_storage_cls, global_config=global_config
         )
 
+        # Initialize dataset status storage
+        self.dataset_metadata_storage_cls = self._get_storage_class(self.dataset_metadata_storage)
+
         # Initialize document status storage
         self.doc_status_storage_cls = self._get_storage_class(self.doc_status_storage)
+
+
 
         self.llm_response_cache: BaseKVStorage = self.key_string_value_json_storage_cls(  # type: ignore
             namespace=NameSpace.KV_STORE_LLM_RESPONSE_CACHE,
@@ -630,6 +640,14 @@ class LightRAG:
             workspace=self.workspace,
             embedding_func=self.embedding_func,
             meta_fields={"full_doc_id", "content", "file_path"},
+        )
+
+        # Initialize dataset_metadata status storage
+        self.dataset_metadata:DatasetMetadataStorage = self.dataset_metadata_storage_cls(
+            namespace=NameSpace.DATASET_METADATA,
+            workspace=self.workspace,
+            global_config=global_config,
+            embedding_func=self.embedding_func,
         )
 
         # Initialize document status storage
@@ -1096,6 +1114,11 @@ class LightRAG:
             from lightrag.kg.json_doc_status_impl import JsonDocStatusStorage
 
             return JsonDocStatusStorage
+
+        elif storage_name == "DatasetMetadataStorage":
+            from lightrag.kg.dataset_metadata_impl import JsonDatasetMetadataStorage
+            return JsonDatasetMetadataStorage
+
         else:
             # Fallback to dynamic import for other storage implementations
             import_path = STORAGES[storage_name]

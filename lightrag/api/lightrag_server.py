@@ -9,6 +9,7 @@ from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
+import numpy as np
 import os
 import logging
 import logging.config
@@ -45,10 +46,19 @@ from lightrag.constants import (
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_EMBEDDING_TIMEOUT,
 )
+
+from lightrag.api.routers.dataset_routes import (
+    DatasetManager,
+    create_dataset_routes
+)
+
 from lightrag.api.routers.document_routes import (
     DocumentManager,
     create_document_routes,
 )
+from lightrag.kg.dataset_metadata_impl import JsonDatasetMetadataStorage
+
+
 from lightrag.api.routers.query_routes import create_query_routes
 from lightrag.api.routers.graph_routes import create_graph_routes
 from lightrag.api.routers.ollama_api import OllamaAPI
@@ -342,6 +352,37 @@ def create_app(args):
 
     # Check if API key is provided either through env var or args
     api_key = os.getenv("LIGHTRAG_API_KEY") or args.key
+
+    # Initialize dataset manager with workspace support for data isolation
+
+    global_config = {
+        "embedding_batch_num": 10,  # Batch size
+        "vector_db_storage_cls_kwargs": {
+            "cosine_better_than_threshold": 0.5  # Cosine similarity threshold
+        },
+        "working_dir": os.environ.get(
+            "WORKING_DIR", "./rag_storage"
+        ),  # Working directory
+    }
+    # Mock embedding function that returns random vectors
+    async def mock_embedding_func(texts):
+      return np.random.rand(len(texts), 10)  # Return 10-dimensional random vectors
+
+
+
+    storage = JsonDatasetMetadataStorage(
+        namespace="dataset",
+        global_config=global_config,
+        embedding_func=EmbeddingFunc(
+            embedding_dim=384,
+            max_token_size=8192,
+            func=mock_embedding_func,
+        ),
+        workspace=args.workspace
+    )
+    dataset_manager = DatasetManager(
+        workspace=args.workspace,
+        storage=storage)
 
     # Initialize document manager with workspace support for data isolation
     doc_manager = DocumentManager(args.input_dir, workspace=args.workspace)
@@ -1036,14 +1077,29 @@ def create_app(args):
 
     # Add routes
     app.include_router(
+        create_dataset_routes(
+            rag,
+            dataset_manager,
+            api_key,
+        )
+    )
+
+    app.include_router(
         create_document_routes(
             rag,
             doc_manager,
             api_key,
         )
     )
-    app.include_router(create_query_routes(rag, api_key, args.top_k))
-    app.include_router(create_graph_routes(rag, api_key))
+    app.include_router(
+        create_query_routes(
+            rag, api_key, args.top_k
+        )
+    )
+    app.include_router(
+        create_graph_routes(
+            rag, api_key)
+    )
 
     # Add Ollama API routes
     ollama_api = OllamaAPI(rag, top_k=args.top_k, api_key=api_key)

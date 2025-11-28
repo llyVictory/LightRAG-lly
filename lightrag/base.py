@@ -720,6 +720,68 @@ class DocProcessingStatus:
             ):
                 self.status = DocStatus.PREPROCESSED
 
+@dataclass
+class DatasetMetadataStorage(BaseKVStorage,ABC):
+    """Base class for dataset metadata storage"""
+
+    @abstractmethod
+    async def get_dataset_counts(self) -> dict[str, int]:
+        """获取所有 dataset 数量统计（例如 active / inactive 数量）"""
+
+    @abstractmethod
+    async def get_dataset(self, dataset_id: str) -> dict[str, Any] | None:
+        """根据 dataset_id 获取一个 dataset 元数据"""
+
+    @abstractmethod
+    async def search_datasets_by_name(
+            self, keyword: str
+    ) -> dict[str, dict[str, Any]]:
+        """根据名称模糊搜索 datasets"""
+
+    @abstractmethod
+    async def get_datasets_paginated(
+            self,
+            page: int = 1,
+            page_size: int = 50,
+            sort_field: str = "updated_at",
+            sort_direction: str = "desc",
+    ) -> tuple[list[tuple[str, dict[str, Any]]], int]:
+        """
+        数据集分页查询
+
+        Args:
+            page: 页码（从 1 开始）
+            page_size: 每页数量
+            sort_field: 排序字段（created_at, updated_at, name）
+            sort_direction: asc 或 desc
+
+        Returns:
+            ([(dataset_id, metadata)], total_count)
+        """
+
+    @abstractmethod
+    async def create_or_update_dataset(
+            self, dataset_id: str, metadata: dict[str, Any]
+    ) -> None:
+        """创建或更新 dataset 元数据"""
+
+    @abstractmethod
+    async def delete_dataset(self, dataset_id: str) -> None:
+        """删除指定 dataset"""
+
+    @abstractmethod
+    async def add_doc_to_dataset(
+            self, dataset_id: str, doc_id: str
+    ) -> None:
+        """给 dataset 添加一个 doc"""
+
+    @abstractmethod
+    async def remove_doc_from_dataset(
+            self, dataset_id: str, doc_id: str
+    ) -> None:
+        """从 dataset 移除一个 doc"""
+
+
 
 @dataclass
 class DocStatusStorage(BaseKVStorage, ABC):
